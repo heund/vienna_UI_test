@@ -1,0 +1,113 @@
+:root {
+    --primary-color: #00a8ff;
+    --accent-color: #98ff98;
+    --background-color: #0066cc;
+    --text-color: #ffffff;
+}
+
+@font-face {
+    font-family: 'Consolas';
+    src: local('Consolas');
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    position: relative;
+    width: 1280px;
+}
+
+.video-container {
+    position: relative;
+    width: 1280px;
+    height: 720px;
+    margin-bottom: 20px;
+}
+
+video {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#binary-container {
+    position: relative;
+    width: 1280px;
+    height: 120px;
+    margin-top: 20px;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+canvas#binary {
+    position: relative;
+    display: block;
+}
+
+#status {
+    position: absolute;
+    top: -30px;
+    right: 0;
+    font-family: 'Futura-PT', Arial;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #7fdbff;
+    text-shadow: 0 0 10px rgba(127, 219, 255, 0.5);
+}
+
+.stats-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 15px;
+    border-radius: 4px;
+    font-size: 12px;
+    min-width: 200px;
+}
+
+.emotion-stats {
+    flex: 1;
+    margin-bottom: 15px;
+}
+
+.emotion-stats h3 {
+    color: var(--accent-color);
+    font-size: 14px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.detection-info {
+    margin-top: 10px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    color: var(--accent-color);
+    text-align: right;
+}
+
+.detection-points, .detection-time {
+    margin: 5px 0;
+    font-size: 12px;
+    letter-spacing: 1px;
+}
