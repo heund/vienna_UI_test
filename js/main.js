@@ -28,12 +28,12 @@ async function startVideo() {
     }
 }
 
-// Adjust canvas size when video loads
+// Initialize video size
 video.addEventListener('play', () => {
-    overlay.width = video.videoWidth;
-    overlay.height = video.videoHeight;
+    overlay.width = 1280;
+    overlay.height = 720;
     binary.width = 1240; // Match container width minus padding
-    binary.height = 80; // Match container height minus padding
+    binary.height = 80;
     detectFaces();
 });
 

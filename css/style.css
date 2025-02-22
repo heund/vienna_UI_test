@@ -10,38 +10,43 @@
     src: local('Consolas');
 }
 
-* {
+html, body {
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
 }
 
 body {
-    background: #000;
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
-    margin: 0;
-    padding: 20px;
+}
+
+* {
+    box-sizing: border-box;
 }
 
 .container {
     position: relative;
     width: 1280px;
+    height: 720px;
 }
 
 .video-container {
     position: relative;
     width: 1280px;
     height: 720px;
-    margin-bottom: 20px;
 }
 
 video {
     position: absolute;
     top: 0;
     left: 0;
+    width: 1280px;
+    height: 720px;
 }
 
 canvas {
@@ -50,18 +55,33 @@ canvas {
     left: 0;
 }
 
+#frame-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 100vw;
+    min-height: 100vh;
+    width: auto;
+    height: auto;
+    z-index: 2;
+    pointer-events: none;
+    object-fit: cover;
+}
+
 #binary-container {
-    position: relative;
+    position: absolute;
+    bottom: -120px;
+    left: 0;
     width: 1280px;
-    height: 120px;
-    margin-top: 20px;
     padding: 20px;
     box-sizing: border-box;
+    z-index: 3;
 }
 
 canvas#binary {
-    position: relative;
-    display: block;
+    width: 100%;
+    height: 80px;
 }
 
 #status {
@@ -73,6 +93,7 @@ canvas#binary {
     letter-spacing: 2px;
     color: #7fdbff;
     text-shadow: 0 0 10px rgba(127, 219, 255, 0.5);
+    z-index: 3;
 }
 
 .stats-container {
