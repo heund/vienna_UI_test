@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sacred Flower Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #000;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border-radius: 50%;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+        }
+        #controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 300px;
+        }
+        .layer-control {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+        }
+        .layer-title {
+            margin-bottom: 10px;
+            color: #31a68f;
+            font-weight: bold;
+        }
+        .slider-container {
+            margin-bottom: 8px;
+        }
+        .slider-label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 4px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        input[type="range"] {
+            width: 100%;
+            background: #31a68f;
+        }
+        input[type="color"] {
+            width: 50px;
+            height: 25px;
+            border: none;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <h2 style="color: #31a68f; margin-bottom: 20px;">Sacred Flower Controls</h2>
+        <!-- Controls will be added here dynamically -->
+    </div>
+    <script src="sacred_flower.js"></script>
+</body>
+</html>

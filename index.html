@@ -4,21 +4,154 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Emotion Detection</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script defer src="js/shared.js"></script>
+    <script defer src="js/sacred_flower/sacred_flower.js"></script>
+    <script defer src="js/visualization.js"></script>
     <script defer src="js/main.js"></script>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #31a68f;
+        }
+        
+        #sacred-flower-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        /* Main container - replaces split container */
+        .main-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            background: transparent;
+        }
+        
+        /* Left side - camera feed */
+        .video-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            background: transparent !important;
+            mix-blend-mode: normal;
+        }
+        
+        /* Video element */
+        #video {
+            position: absolute;
+            width: 960px;
+            height: 540px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            object-fit: contain;
+            mix-blend-mode: normal;
+            background: transparent !important;
+        }
+        
+        /* Overlay canvas */
+        #overlay {
+            position: absolute;
+            width: 960px;
+            height: 540px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: normal;
+            background: transparent !important;
+        }
+        
+        /* Binary canvas */
+        #binary {
+            position: absolute;
+            width: 960px;
+            height: 60px;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            mix-blend-mode: normal;
+            background: transparent !important;
+        }
+        
+        /* Right side - visualization */
+        #visualization-container {
+            position: absolute;
+            right: 2%;
+            top: 2%;
+            width: 46%;
+            height: 96%;
+            background: transparent !important;
+        }
+        
+        #visualization-container canvas {
+            mix-blend-mode: normal;
+            background: transparent !important;
+        }
+        
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        #sacred-flower-container canvas {
+            z-index: 0;
+        }
+        
+        #visualization-container canvas {
+            z-index: 2;
+        }
+        
+        #status {
+            color: #31a68f;
+            z-index: 3;
+            position: relative;
+            padding: 10px;
+        }
+        
+        .emotion-stats {
+            color: #31a68f;
+            z-index: 3;
+            position: relative;
+            padding: 10px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
+    <!-- Sacred flower background -->
+    <div id="sacred-flower-container"></div>
+    
+    <!-- Main container -->
+    <div class="main-container">
+        <!-- Left side - camera feed -->
         <div class="video-container">
-            <div id="status"></div>
-            <video id="video" width="1280" height="720" autoplay muted></video>
-            <canvas id="overlay" width="1280" height="720"></canvas>
-            <img src="test1.png" id="frame-overlay" alt="Decorative frame">
+            <video id="video" autoplay muted></video>
+            <canvas id="overlay"></canvas>
+            <canvas id="binary"></canvas>
+
+                <div id="status">PERSON: NOT DETECTED</div>
+            </div>
+            <div id="emotion-stats" class="emotion-stats">
+                <div class="emotion-primary"></div>
+                <div class="emotion-secondary"></div>
+            </div>
         </div>
-        <div id="binary-container">
-            <canvas id="binary" width="1240" height="80"></canvas>
-        </div>
+        
+        <!-- Right side - visualization -->
+        <div id="visualization-container"></div>
     </div>
 </body>
 </html>

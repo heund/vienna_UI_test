@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sacred Flower Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #000;
+            overflow: hidden;
+        }
+        canvas {
+            border-radius: 50%;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+        }
+        #emotionControls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+        }
+        .control-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div id="emotionControls">
+        <div class="control-group">
+            <label for="joy">Joy</label>
+            <input type="range" id="joy" min="0" max="100" value="50">
+        </div>
+        <div class="control-group">
+            <label for="energy">Energy</label>
+            <input type="range" id="energy" min="0" max="100" value="50">
+        </div>
+        <div class="control-group">
+            <label for="intensity">Intensity</label>
+            <input type="range" id="intensity" min="0" max="100" value="50">
+        </div>
+    </div>
+    <script src="js/sacred_flower/sacred_flower.js"></script>
+    <script>
+        // Emotion control variables
+        let joyLevel = 0.5;
+        let energyLevel = 0.5;
+        let intensityLevel = 0.5;
+
+        // Add event listeners to sliders
+        document.getElementById('joy').addEventListener('input', (e) => {
+            joyLevel = e.target.value / 100;
+            updateFlowerColors();
+        });
+
+        document.getElementById('energy').addEventListener('input', (e) => {
+            energyLevel = e.target.value / 100;
+            updateFlowerSpeed();
+        });
+
+        document.getElementById('intensity').addEventListener('input', (e) => {
+            intensityLevel = e.target.value / 100;
+            updateFlowerSize();
+        });
+
+        function updateFlowerColors() {
+            // Update color based on joy level
+            colors.flower.base = lerpColor(
+                color('#FFE5B4'),
+                color('#FF69B4'),
+                joyLevel
+            ).toString();
+            
+            colors.flower.edge = lerpColor(
+                color('#951c0d'),
+                color('#FF1493'),
+                joyLevel
+            ).toString();
+        }
+
+        function updateFlowerSpeed() {
+            // Update rotation speed based on energy level
+            rotationSpeed = 0.1 + (energyLevel * 0.4);
+        }
+
+        function updateFlowerSize() {
+            // Update flower size based on intensity
+            lastLayer = PETAL_ROWS * intensityLevel;
+        }
+    </script>
+</body>
+</html>

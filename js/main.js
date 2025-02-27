@@ -1,11 +1,19 @@
+// Video elements setup
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 const overlayCtx = overlay.getContext('2d');
 const binary = document.getElementById('binary');
 const binaryCtx = binary.getContext('2d');
 const statusElement = document.getElementById('status');
+const emotionPrimaryElement = document.querySelector('.emotion-primary');
+const emotionSecondaryElement = document.querySelector('.emotion-secondary');
 
-// Wait for the models to load before starting
+// Initialize global emotionChannel
+console.log('Initializing main page...');
+// emotionChannel is defined in shared.js
+console.log('Using shared data object');
+
+// Initialize face detection
 Promise.all([
     faceapi.nets.tinyFaceDetector.loadFromUri('./models'),
     faceapi.nets.faceLandmark68Net.loadFromUri('./models'),
@@ -13,16 +21,47 @@ Promise.all([
 ]).then(startVideo)
 .catch(err => console.error('Error loading models:', err));
 
+// Initialize emotion smoothing
+const emotionHistory = {
+    angry: [],
+    disgusted: [],
+    fearful: [],
+    happy: [],
+    neutral: [],
+    sad: [],
+    surprised: []
+};
+const smoothingWindow = 10; // Number of frames to average
+const confidenceThreshold = 0.5; // Minimum confidence to register emotion
+
+// Initialize detection status tracking
+let lastDetectionTime = Date.now();
+const detectionTimeout = 1000; // 1 second timeout
+
 // Start video stream
 async function startVideo() {
     try {
+        // List available devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        // Find Logitech camera
+        const logitech = videoDevices.find(device => device.label.toLowerCase().includes('logi'));
+        
         const stream = await navigator.mediaDevices.getUserMedia({ 
             video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
+                deviceId: logitech ? { exact: logitech.deviceId } : undefined,
+                width: { ideal: 960 },
+                height: { ideal: 540 }
             }
         });
         video.srcObject = stream;
+        
+        // Set video element styles
+        video.style.mixBlendMode = 'normal';
+        video.style.background = 'transparent';
+        video.style.width = '960px';
+        video.style.height = '540px';
     } catch (err) {
         console.error('Error accessing webcam:', err);
     }
@@ -30,63 +69,222 @@ async function startVideo() {
 
 // Initialize video size
 video.addEventListener('play', () => {
-    overlay.width = 1280;
-    overlay.height = 720;
-    binary.width = 1240; // Match container width minus padding
-    binary.height = 80;
+    // Set canvas properties
+    overlay.width = 960;   
+    overlay.height = 540;  
+    binary.width = 960;    
+    binary.height = 60;    
+    
+    // Set canvas context properties
+    overlayCtx.globalCompositeOperation = 'source-over';
+    
     detectFaces();
 });
 
 // Main face detection function
-let lastDetectionTime = 0;
-const detectionTimeout = 1000; // 1 second timeout to consider no face detected
-
 async function detectFaces() {
     const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
         .withFaceLandmarks()
         .withFaceExpressions();
 
-    // Clear previous drawings
     overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
 
-    if (detections.length > 0) {
+    if (detections && detections.length > 0) {
         lastDetectionTime = Date.now();
         const detection = detections[0];
-        drawCustomDetection(detection);
-        updateStats(detection);
+        const landmarks = detection.landmarks;
+        const expressions = detection.expressions;
+        
+        // Smooth emotions
+        Object.keys(expressions).forEach(emotion => {
+            emotionHistory[emotion].push(expressions[emotion]);
+            if (emotionHistory[emotion].length > smoothingWindow) {
+                emotionHistory[emotion].shift();
+            }
+            expressions[emotion] = smoothEmotion(emotion);
+        });
+        
+        // Find primary emotion with smoothed values
+        let emotionsArray = Object.entries(expressions)
+            .map(([emotion, confidence]) => ({emotion, confidence}))
+            .sort((a, b) => b.confidence - a.confidence);
+        
+        let primaryEmotion = emotionsArray[0];
+
+        // Only update if confidence exceeds threshold
+        if (primaryEmotion.confidence > confidenceThreshold) {
+            // Convert landmarks to simple x,y objects and normalize scale
+            const positions = landmarks.positions.map(point => ({
+                x: point._x !== undefined ? point._x : point.x,
+                y: point._y !== undefined ? point._y : point.y
+            }));
+
+            // Calculate face size for scale normalization
+            const box = detection.detection.box;
+            const faceSize = Math.min(box.width, box.height);
+            const targetSize = 400; 
+            const scale = (targetSize / faceSize) * 1.2; 
+
+            // Update shared data
+            window.emotionData = {
+                emotion: primaryEmotion.emotion,
+                confidence: primaryEmotion.confidence,
+                landmarks: {
+                    positions: positions,
+                    box: detection.detection.box,
+                    scale: scale 
+                },
+                expressions: expressions,
+                timestamp: Date.now(),
+                hasNewData: true
+            };
+
+            // Draw custom detection
+            drawCustomDetection(detection);
+            
+            // Comment out binary data drawing
+            // drawBinaryData(detection);
+        }
     }
 
-    // Always draw status and binary data
-    drawStatus(detections.length > 0);
-    drawBinaryData(detections);
+    // Update detection status
+    updateDetectionStatus();
 
     requestAnimationFrame(detectFaces);
 }
 
-// Draw persistent status
-function drawStatus(isPersonDetected) {
-    // Check if we haven't seen a face for more than the timeout period
+// Update detection status
+function updateDetectionStatus() {
     const timeSinceLastDetection = Date.now() - lastDetectionTime;
-    const status = timeSinceLastDetection < detectionTimeout ? 'DETECTED' : 'NOT DETECTED';
+    const isDetected = timeSinceLastDetection < detectionTimeout;
     
-    // Update status element
-    statusElement.textContent = 'PERSON: ' + status;
+    if (statusElement) {
+        statusElement.textContent = 'PERSON: ' + (isDetected ? 'DETECTED' : 'NOT DETECTED');
+        statusElement.style.color = isDetected ? '#7fdbff' : '#ff4136';
+    }
 }
 
-// Update emotion stats
+// Smooth emotion values using moving average
+function smoothEmotion(emotion) {
+    if (emotionHistory[emotion].length === 0) return 0;
+    
+    const sum = emotionHistory[emotion].reduce((a, b) => a + b, 0);
+    return sum / emotionHistory[emotion].length;
+}
+
+// Draw custom detection box and emotion data
+function drawCustomDetection(detection) {
+    // Clear the overlay before drawing
+    overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+    
+    // Set composite operation to not affect background
+    overlayCtx.globalCompositeOperation = 'source-over';
+    
+    const box = detection.detection.box;
+    const drawBox = {
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height
+    };
+
+    // Draw corners
+    const cornerLength = 20;
+    overlayCtx.strokeStyle = '#7fdbff';
+    overlayCtx.lineWidth = 2;
+
+    // Top left
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(drawBox.x, drawBox.y + cornerLength);
+    overlayCtx.lineTo(drawBox.x, drawBox.y);
+    overlayCtx.lineTo(drawBox.x + cornerLength, drawBox.y);
+    overlayCtx.stroke();
+
+    // Top right
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(drawBox.x + drawBox.width - cornerLength, drawBox.y);
+    overlayCtx.lineTo(drawBox.x + drawBox.width, drawBox.y);
+    overlayCtx.lineTo(drawBox.x + drawBox.width, drawBox.y + cornerLength);
+    overlayCtx.stroke();
+
+    // Bottom right
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(drawBox.x + drawBox.width, drawBox.y + drawBox.height - cornerLength);
+    overlayCtx.lineTo(drawBox.x + drawBox.width, drawBox.y + drawBox.height);
+    overlayCtx.lineTo(drawBox.x + drawBox.width - cornerLength, drawBox.y + drawBox.height);
+    overlayCtx.stroke();
+
+    // Bottom left
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(drawBox.x + cornerLength, drawBox.y + drawBox.height);
+    overlayCtx.lineTo(drawBox.x, drawBox.y + drawBox.height);
+    overlayCtx.lineTo(drawBox.x, drawBox.y + drawBox.height - cornerLength);
+    overlayCtx.stroke();
+
+    // Draw emotion text and percentage
+    const emotion = Object.entries(detection.expressions)
+        .reduce((a, b) => (a[1] > b[1] ? a : b))[0];
+    const percentage = Math.round(Math.max(...Object.values(detection.expressions)) * 100);
+    
+    const text = `${emotion.toUpperCase()} ${percentage}%`;
+    overlayCtx.font = '16px Futura-PT';
+    overlayCtx.fillStyle = '#7fdbff';
+    overlayCtx.fillText(text, drawBox.x + 10, drawBox.y - 10);
+
+    // Update status display
+    if (statusElement) {
+        statusElement.textContent = text;
+    }
+}
+
+// Draw geometric face mesh
+function drawGeometricFaceMesh(positions) {
+    // Skip drawing the face mesh outline
+    // Instead, just update binary data visualization
+    updateBinaryData();
+}
+
+// Draw binary data at the bottom
+function drawBinaryData(detection) {
+    if (!detection) return;
+    
+    const binaryData = generateEmotionBinaryData(detection.expressions);
+    const cellWidth = binary.width / binaryData.length;
+    const cellHeight = binary.height;
+    
+    binaryCtx.clearRect(0, 0, binary.width, binary.height);
+    
+    // Draw each binary digit
+    binaryData.forEach((digit, i) => {
+        binaryCtx.fillStyle = '#7fdbff';
+        binaryCtx.font = '11px Futura-PT, Arial';
+        binaryCtx.textAlign = 'center';
+        binaryCtx.fillText(digit, i * cellWidth + cellWidth/2, cellHeight/2);
+    });
+}
+
+// Generate binary data from emotions
+function generateEmotionBinaryData(expressions) {
+    const emotionValues = Object.values(expressions);
+    return emotionValues.map(value => Math.round(value)).join('');
+}
+
+// Update emotion stats with original design
 function updateStats(detection) {
+    if (!detection) return;
+
     const expressions = detection.expressions;
     const box = detection.detection.box;
     
-    // Find top 3 emotions with confidence
+    // Find top 3 emotions
     let emotionsArray = Object.entries(expressions)
         .map(([emotion, confidence]) => ({emotion, confidence}))
         .sort((a, b) => b.confidence - a.confidence)
         .slice(0, 3);
     
     let primaryEmotion = emotionsArray[0];
-    let confidence = Math.round(primaryEmotion.confidence * 100);
-    
+    let confidence = primaryEmotion.confidence;
+
     // Draw primary emotion circle (left side)
     const circleRadius = 45;
     const padding = 100;
@@ -96,6 +294,7 @@ function updateStats(detection) {
     const circleY = box.y + box.height / 2;
     
     // Add glow effect
+    const overlayCtx = overlay.getContext('2d');
     overlayCtx.shadowColor = '#7fdbff';
     overlayCtx.shadowBlur = 10;
     
@@ -111,7 +310,7 @@ function updateStats(detection) {
     overlayCtx.lineWidth = 2;
     overlayCtx.beginPath();
     overlayCtx.arc(circleX, circleY, circleRadius, -Math.PI/2, 
-        (-Math.PI/2) + (2 * Math.PI * confidence/100));
+        (-Math.PI/2) + (2 * Math.PI * confidence));
     overlayCtx.stroke();
     
     // Reset shadow for text
@@ -122,7 +321,7 @@ function updateStats(detection) {
     overlayCtx.font = '32px Futura-PT, Arial';
     overlayCtx.textAlign = 'center';
     overlayCtx.textBaseline = 'middle';
-    overlayCtx.fillText(confidence + '%', circleX, circleY);
+    overlayCtx.fillText(Math.round(confidence * 100) + '%', circleX, circleY);
     
     // Draw emotion label
     overlayCtx.font = '11px Futura-PT, Arial';
@@ -132,7 +331,7 @@ function updateStats(detection) {
     overlayCtx.shadowBlur = 10;
     overlayCtx.fillText(primaryEmotion.emotion.toUpperCase(), circleX, circleY + circleRadius + 20);
 
-    // Non-primary emotions section
+    // Non-primary emotions section (right side)
     const graphX = box.x + box.width + padding + 20;
     const graphY = box.y + box.height / 2 - 40;
     const graphWidth = 200;
@@ -147,227 +346,50 @@ function updateStats(detection) {
         const y = graphY + 30 + (index * 30);
         const barWidth = graphWidth * emotion.confidence;
         
-        // Draw label with enhanced visibility
+        // Draw label
         overlayCtx.fillStyle = '#7fdbff';
         overlayCtx.fillText(emotion.emotion.toUpperCase(), graphX, y);
         
-        // Draw horizontal line
-        overlayCtx.beginPath();
-        overlayCtx.strokeStyle = 'rgba(127, 219, 255, 0.4)';
-        overlayCtx.moveTo(graphX + 100, y - 4);
-        overlayCtx.lineTo(graphX + graphWidth, y - 4);
-        overlayCtx.stroke();
+        // Draw percentage
+        overlayCtx.fillText(Math.round(emotion.confidence * 100) + '%', 
+            graphX + graphWidth + 20, y);
         
-        // Draw arrow
-        const arrowX = graphX + 100 + barWidth;
-        overlayCtx.beginPath();
+        // Draw bar
         overlayCtx.strokeStyle = '#7fdbff';
-        overlayCtx.moveTo(arrowX - 6, y - 7);
-        overlayCtx.lineTo(arrowX, y - 4);
-        overlayCtx.lineTo(arrowX - 6, y - 1);
+        overlayCtx.lineWidth = 1;
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(graphX, y + 10);
+        overlayCtx.lineTo(graphX + barWidth, y + 10);
         overlayCtx.stroke();
     });
 }
 
-// Custom drawing function
-function drawCustomDetection(detection) {
-    const landmarks = detection.landmarks;
-    const points = landmarks.positions;
-    const box = detection.detection.box;
-    
-    // Draw corner brackets
-    const cornerSize = 30;
-    const padding = 20;
-    
-    // Add glow effect
-    overlayCtx.shadowColor = '#7fdbff';
-    overlayCtx.shadowBlur = 10;
-    overlayCtx.strokeStyle = '#7fdbff'; // Lighter, glowy blue
-    overlayCtx.lineWidth = 2;
-    
-    // Top-left corner
-    drawCorner(box.x - padding, box.y - padding, cornerSize, 0);
-    // Top-right corner
-    drawCorner(box.x + box.width + padding, box.y - padding, cornerSize, 90);
-    // Bottom-right corner
-    drawCorner(box.x + box.width + padding, box.y + box.height + padding, cornerSize, 180);
-    // Bottom-left corner
-    drawCorner(box.x - padding, box.y + box.height + padding, cornerSize, 270);
-
-    // Reset shadow for mesh
-    overlayCtx.shadowBlur = 0;
-    
-    // Draw geometric face mesh
-    drawGeometricFaceMesh(points);
-}
-
-// Draw geometric face mesh
-function drawGeometricFaceMesh(points) {
-    overlayCtx.strokeStyle = 'rgba(127, 219, 255, 0.4)';
-    overlayCtx.lineWidth = 1.2;
-
-    // Map to reference image points using faceAPI landmarks
-    const referencePoints = {
-        forehead: [21, 22], // Two points above eyebrows
-        eyebrows: [19, 24], // Center of each eyebrow
-        eyes: [36, 45], // Outer corners of eyes
-        temples: [0, 16], // Side corners
-        cheeks: [2, 14], // Side cheeks
-        noseAndCenter: [30, 33], // Nose bridge and tip
-        mouthCorners: [48, 54], // Mouth corners
-        mouthTop: [51], // Top lip center
-        mouthBottom: [57], // Bottom lip center
-        chinLine: [6, 8, 10] // Chin points
-    };
-
-    // Clear previous drawings
-    overlayCtx.beginPath();
-
-    // Draw face mesh exactly like reference
-    // Top triangles connecting forehead points
-    connectPoints([points[0], points[21], points[22], points[16]]); // Top line with forehead points
-
-    // Temple to cheekbone connections
-    connectPoints([points[0], points[2]]); // Left temple to cheekbone
-    connectPoints([points[16], points[14]]); // Right temple to cheekbone
-
-    // Temple to eye corner connections
-    connectPoints([points[0], points[36]]); // Left temple to left eye corner
-    connectPoints([points[16], points[45]]); // Right temple to right eye corner
-
-    // Eyebrow geometric structure
-    connectPoints([points[19], points[24]]); // Eyebrow horizontal line
-    connectPoints([points[21], points[19]]); // Left forehead to left eyebrow
-    connectPoints([points[22], points[24]]); // Right forehead to right eyebrow
-    connectPoints([points[19], points[0]]); // Left eyebrow to left temple
-    connectPoints([points[24], points[16]]); // Right eyebrow to right temple
-    
-    // All eyebrow points to nose tip
-    connectPoints([points[19], points[33]]); // Left inner eyebrow to nose tip
-    connectPoints([points[24], points[33]]); // Right inner eyebrow to nose tip
-    connectPoints([points[21], points[33]]); // Left outer eyebrow to nose tip
-    connectPoints([points[22], points[33]]); // Right outer eyebrow to nose tip
-
-    // Eye structure integration
-    connectPoints([points[36], points[30]]); // Left eye to nose bridge
-    connectPoints([points[45], points[30]]); // Right eye to nose bridge
-    connectPoints([points[36], points[2]]); // Left eye to cheek
-    connectPoints([points[45], points[14]]); // Right eye to cheek
-
-    // Nose line
-    connectPoints([points[30], points[33]]);
-
-    // Cheek to nose connections
-    connectPoints([points[2], points[33]]);
-    connectPoints([points[14], points[33]]);
-
-    // Mouth structure
-    connectPoints([points[48], points[51], points[54]]); // Upper mouth
-    connectPoints([points[48], points[57], points[54]]); // Lower mouth
-
-    // Chin connections
-    connectPoints([points[2], points[6], points[8]]); // Left chin
-    connectPoints([points[14], points[10], points[8]]); // Right chin
-
-    // Draw points
-    overlayCtx.fillStyle = 'rgba(127, 219, 255, 0.6)';
-    
-    // Draw all points from our reference mapping
-    Object.values(referencePoints).flat().forEach(index => {
-        drawGeometricPoint(points[index].x, points[index].y);
-    });
-}
-
-// Helper function to connect points in a line
-function connectPoints(points) {
-    if (points.length < 2) return;
-    
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(points[0].x, points[0].y);
-    
-    for (let i = 1; i < points.length; i++) {
-        overlayCtx.lineTo(points[i].x, points[i].y);
-    }
-    
-    overlayCtx.stroke();
-}
-
-// Draw geometric point
-function drawGeometricPoint(x, y) {
-    const size = 2.5;
-    overlayCtx.beginPath();
-    overlayCtx.arc(x, y, size, 0, Math.PI * 2);
-    overlayCtx.fill();
-}
-
-// Draw corner bracket
-function drawCorner(x, y, size, rotation) {
-    overlayCtx.save();
-    overlayCtx.translate(x, y);
-    overlayCtx.rotate((rotation * Math.PI) / 180);
-    
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(0, 0);
-    overlayCtx.lineTo(size, 0);
-    overlayCtx.moveTo(0, 0);
-    overlayCtx.lineTo(0, size);
-    overlayCtx.stroke();
-    
-    overlayCtx.restore();
-}
-
-// Convert number to 8-bit binary string
-function toBinary(number) {
-    return (number * 255).toFixed(0)
-        .toString(2)
-        .padStart(8, '0');
-}
-
-// Generate binary data from actual emotion values
+// Helper function to generate binary data
 function generateEmotionBinaryData(expressions) {
-    if (!expressions) return Array(6).fill('0'.repeat(48));
-    
-    const emotionData = [
-        expressions.neutral,
-        expressions.happy,
-        expressions.sad,
-        expressions.angry,
-        expressions.fearful,
-        expressions.disgusted,
-        expressions.surprised
-    ];
-
-    // Convert each emotion value to binary and combine them
-    return emotionData.map(value => {
-        // Convert confidence value to binary
-        const mainBits = toBinary(value);
-        // Add some processing bits to make it look more complex
-        const processBits = Array(40).fill(0)
-            .map((_, i) => ((value * 1000 + i) % 2).toString())
-            .join('');
-        return mainBits + processBits;
-    });
+    return Object.values(expressions)
+        .map(confidence => Math.round(confidence * 255))
+        .map(value => toBinary(value))
+        .join('').split('');
 }
 
-function drawBinaryData(detections) {
-    const lines = 6;
-    const lineHeight = 18;
-    const padding = 10;
+// Helper function to convert number to binary
+function toBinary(number) {
+    return (number >>> 0).toString(2).padStart(8, '0');
+}
+
+// Update binary data visualization
+function updateBinaryData() {
+    const binaryData = generateEmotionBinaryData(window.emotionData.expressions);
+    const cellWidth = binary.width / binaryData.length;
+    const cellHeight = binary.height;
     
-    // Clear previous binary data
     binaryCtx.clearRect(0, 0, binary.width, binary.height);
     
-    binaryCtx.font = '12px Consolas, monospace';
-    binaryCtx.fillStyle = '#7fdbff';
-    binaryCtx.textAlign = 'left';
-    binaryCtx.textBaseline = 'top';
-    
-    // Get actual emotion data if available
-    const expressions = detections.length > 0 ? detections[0].expressions : null;
-    const binaryLines = generateEmotionBinaryData(expressions);
-    
-    // Draw binary lines
-    for (let i = 0; i < lines; i++) {
-        binaryCtx.fillText(binaryLines[i], padding, padding + i * lineHeight);
-    }
+    // Draw each binary digit
+    binaryData.forEach((digit, i) => {
+        binaryCtx.fillStyle = '#7fdbff';
+        binaryCtx.font = '11px Futura-PT, Arial';
+        binaryCtx.textAlign = 'center';
+        binaryCtx.fillText(digit, i * cellWidth + cellWidth/2, cellHeight/2);
+    });
 }
