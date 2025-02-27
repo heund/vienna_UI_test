@@ -3,6 +3,9 @@ let audioContext = null;
 let neutralBuffer = null;
 let currentEmotion = null;
 let isAudioInitialized = false;
+let reverbNode = null;
+let dryGainNode = null;
+let wetGainNode = null;
 
 // Initialize Web Audio API and load sounds
 async function initializeSounds() {
@@ -13,27 +16,22 @@ async function initializeSounds() {
                 // Create audio context
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 isAudioInitialized = true;
-                console.log('Audio context created');
 
-                // Play test beep
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                oscillator.frequency.value = 440;
-                gainNode.gain.value = 0.1;
-                oscillator.start();
-                oscillator.stop(audioContext.currentTime + 0.1);
+                // Create reverb
+                reverbNode = audioContext.createConvolver();
+                // Create gain nodes
+                dryGainNode = audioContext.createGain();
+                wetGainNode = audioContext.createGain();
+                // Set initial mix
+                dryGainNode.gain.value = 0.7;
+                wetGainNode.gain.value = 0.3;
 
                 // Load neutral sound
-                const response = await fetch('sound/neutral/neutral.wav');
-                const arrayBuffer = await response.arrayBuffer();
-                neutralBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                console.log('Neutral sound loaded');
-
-                // Test play the neutral sound
-                playSound(neutralBuffer);
-                console.log('Test playing neutral sound');
+                if (!neutralBuffer) {
+                    const response = await fetch('sound/neutral/neutral.wav');
+                    const arrayBuffer = await response.arrayBuffer();
+                    neutralBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                }
 
             } catch (error) {
                 console.error('Error initializing audio:', error);
@@ -43,49 +41,35 @@ async function initializeSounds() {
 }
 
 // Function to play a sound buffer
-function playSound(buffer) {
-    if (!audioContext || !buffer) return;
-    
+function playBuffer(buffer) {
+    if (!buffer || !audioContext) return;
+
     const source = audioContext.createBufferSource();
     source.buffer = buffer;
-    source.connect(audioContext.destination);
+    
+    // Connect through reverb
+    source.connect(dryGainNode);
+    source.connect(wetGainNode);
+    dryGainNode.connect(audioContext.destination);
+    wetGainNode.connect(reverbNode);
+    reverbNode.connect(audioContext.destination);
+    
     source.start();
-    console.log('Playing sound buffer');
 }
 
 // Handle emotion changes and play corresponding sounds
 function handleEmotionSound(emotion, confidence) {
-    console.log('Handling emotion sound:', emotion, 'Audio initialized:', isAudioInitialized, 'Buffer loaded:', !!neutralBuffer);
-    
     if (!isAudioInitialized || !neutralBuffer) {
-        console.log('Audio not ready yet');
         return;
     }
 
-    // Only process if emotion has changed and confidence is high enough
+    // Only play sound if emotion changes and confidence is high enough
     if (emotion !== currentEmotion && confidence > 0.8) {
-        console.log('Emotion changed from', currentEmotion, 'to', emotion, 'with confidence', confidence);
-
-        // Play neutral sound if emotion is neutral
-        if (emotion === 'neutral') {
-            try {
-                console.log('Playing neutral sound...');
-                playSound(neutralBuffer);
-                
-                // Also play a quick beep as indicator
-                const osc = audioContext.createOscillator();
-                const gain = audioContext.createGain();
-                osc.connect(gain);
-                gain.connect(audioContext.destination);
-                gain.gain.value = 0.1;
-                osc.start();
-                osc.stop(audioContext.currentTime + 0.1);
-            } catch (error) {
-                console.error('Error playing neutral sound:', error);
-            }
-        }
-
         currentEmotion = emotion;
+        
+        if (emotion === 'neutral') {
+            playBuffer(neutralBuffer);
+        }
     }
 }
 

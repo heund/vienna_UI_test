@@ -1,6 +1,15 @@
 // Color palette
 const colors = {
-    background: '#31a68f', // Turquoise green
+    background: '#31a68f', // Default turquoise green
+    emotional: {
+        neutral: '#31a68f',  // Turquoise
+        happy: '#FF4D8F',    // Bright magenta pink
+        sad: '#779ECB',      // Muted blue
+        angry: '#FF6B6B',    // Soft red
+        fearful: '#9896A4',  // Cool gray
+        disgusted: '#B5E5CF', // Mint
+        surprised: '#FFD93D'  // Warm yellow
+    },
     flower: {
         base: '#FFE5B4',    // Peach base
         shadow: '#8B3A3A',  // Deep burgundy shadow
@@ -12,9 +21,12 @@ const colors = {
 // Create a new p5 instance for the background
 const sacredFlowerSketch = (p) => {
     let rotation = 0;
+    let currentColor;
+    let targetColor;
     const PETAL_ROWS = 10;      // Number of rows
     const PETALS_PER_ROW = 16; // Base number of petals per row
     const rotationSpeed = 0.1;  // Speed of overall rotation
+    const colorLerpSpeed = 0.05; // Speed of color transition
 
     p.setup = () => {
         console.log('Setting up sacred flower...');
@@ -25,13 +37,25 @@ const sacredFlowerSketch = (p) => {
         p.noStroke();
         // Ensure we're using RGB color mode
         p.colorMode(p.RGB, 255);
+        currentColor = p.color(colors.emotional.neutral);
+        targetColor = p.color(colors.emotional.neutral);
         console.log('Sacred flower canvas created:', p.width, p.height);
     };
 
     p.draw = () => {
         p.clear();
+        
+        // Smoothly transition to target color
+        currentColor = p.lerpColor(
+            currentColor, 
+            targetColor, 
+            colorLerpSpeed
+        );
+        
         // Set background with alpha for slight transparency
-        p.background(p.color(colors.background));
+        const bgColor = p.color(p.red(currentColor), p.green(currentColor), p.blue(currentColor), 200);
+        p.background(bgColor);
+        
         p.translate(p.width/2, p.height/2);
         
         // Draw the flower pattern
@@ -43,6 +67,13 @@ const sacredFlowerSketch = (p) => {
 
     p.windowResized = () => {
         p.resizeCanvas(window.innerWidth, window.innerHeight);
+    };
+
+    p.updateEmotion = (emotion) => {
+        console.log('Sacred flower updating emotion:', emotion);
+        if (colors.emotional[emotion]) {
+            targetColor = p.color(colors.emotional[emotion]);
+        }
     };
 
     const drawFlower = (p) => {
@@ -163,5 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Sacred flower container not found!');
         return;
     }
-    new p5(sacredFlowerSketch);
+    
+    // Create and store the p5 instance
+    window.sacredFlower = new p5(sacredFlowerSketch, container);
 });

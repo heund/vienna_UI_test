@@ -81,18 +81,6 @@
             background: transparent !important;
         }
 
-        /* Binary canvas */
-        #binary {
-            position: absolute;
-            width: 960px;
-            height: 60px;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            mix-blend-mode: normal;
-            background: transparent !important;
-        }
-
         /* Right side - visualization */
         #visualization-container {
             position: absolute;
@@ -150,7 +138,6 @@
         <div class="video-container">
             <video id="video" width="960" height="540" autoplay muted></video>
             <canvas id="overlay" width="960" height="540"></canvas>
-            <canvas id="binary" width="960" height="60"></canvas>
             <div id="status">Initializing...</div>
             <div id="emotion-primary" class="emotion-primary">neutral (0%)</div>
             <div id="emotion-secondary" class="emotion-secondary">neutral (0%)</div>

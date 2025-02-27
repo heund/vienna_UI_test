@@ -5,8 +5,6 @@ const overlayCtx = overlay.getContext('2d');
 const emotionPrimaryElement = document.getElementById('emotion-primary');
 const emotionSecondaryElement = document.getElementById('emotion-secondary');
 const statusElement = document.getElementById('status');
-const binary = document.getElementById('binary');
-const binaryCtx = binary.getContext('2d');
 
 // Video elements setup
 // Initialize global emotionChannel
@@ -77,8 +75,6 @@ video.addEventListener('play', () => {
     // Set canvas properties
     overlay.width = 960;   
     overlay.height = 540;  
-    binary.width = 960;    
-    binary.height = 60;    
     
     // Set canvas context properties
     overlayCtx.globalCompositeOperation = 'source-over';
@@ -110,9 +106,6 @@ async function detectFaces() {
         const landmarks = detection.landmarks;
         const expressions = detection.expressions;
         
-        // Debug log expressions
-        console.log('Detected expressions:', expressions);
-        
         // Smooth emotions
         Object.keys(expressions).forEach(emotion => {
             emotionHistory[emotion].push(expressions[emotion]);
@@ -127,9 +120,8 @@ async function detectFaces() {
         // Draw face detection visuals
         drawCustomDetection(detection);
         drawGeometricFaceMesh(landmarks.positions);
-        updateBinaryData(detection);
     } else {
-        console.log('No face detected');
+        statusElement.textContent = 'No face detected';
     }
 
     // Update detection status
@@ -154,30 +146,31 @@ function updateStats(detection) {
     if (!detection) return;
 
     const expressions = detection.expressions;
-    let primaryEmotion = { name: 'neutral', value: 0 };
-    let secondaryEmotion = { name: 'neutral', value: 0 };
 
-    // Single pass to find primary and secondary emotions
-    Object.entries(expressions).forEach(([emotion, value]) => {
-        const smoothedValue = smoothEmotion(emotion);
-        if (smoothedValue > primaryEmotion.value) {
-            secondaryEmotion = { ...primaryEmotion };
-            primaryEmotion = { name: emotion, value: smoothedValue };
-        } else if (smoothedValue > secondaryEmotion.value) {
-            secondaryEmotion = { name: emotion, value: smoothedValue };
-        }
-    });
+    // Get the strongest emotions
+    const sortedEmotions = Object.entries(expressions)
+        .sort((a, b) => b[1] - a[1]);
+    
+    const primaryEmotion = {
+        name: sortedEmotions[0][0],
+        value: sortedEmotions[0][1]
+    };
+    
+    const secondaryEmotion = {
+        name: sortedEmotions[1][0],
+        value: sortedEmotions[1][1]
+    };
 
-    // Debug log primary emotion
-    console.log('Primary emotion:', primaryEmotion);
+    // Update sacred flower background color
+    if (window.sacredFlower && window.sacredFlower.updateEmotion) {
+        window.sacredFlower.updateEmotion(primaryEmotion.name);
+    }
 
     // Update DOM elements only if values have changed significantly
     if (Math.abs(primaryEmotion.value - lastPrimaryValue) > 0.1) {
         emotionPrimaryElement.textContent = `${primaryEmotion.name} (${(primaryEmotion.value * 100).toFixed(0)}%)`;
         lastPrimaryValue = primaryEmotion.value;
         
-        // Handle emotion sound with debug logging
-        console.log('Primary emotion changed, calling handleEmotionSound:', primaryEmotion.name);
         handleEmotionSound(primaryEmotion.name, primaryEmotion.value);
     }
     if (Math.abs(secondaryEmotion.value - lastSecondaryValue) > 0.1) {
@@ -277,59 +270,6 @@ function drawCustomDetection(detection) {
 function drawGeometricFaceMesh(positions) {
     // Skip drawing the face mesh outline
     // Instead, just update binary data visualization
-    updateBinaryData();
-}
-
-// Function to generate binary data from emotions
-function generateEmotionBinaryData(expressions) {
-    if (!expressions) {
-        return new Array(64).fill(0);
-    }
-
-    // Convert emotion values to binary representation
-    const binaryData = [];
-    const emotions = Object.entries(expressions);
-    const totalEmotions = emotions.length;
-    const bitsPerEmotion = Math.floor(64 / totalEmotions);
-
-    emotions.forEach(([emotion, value]) => {
-        const bits = Math.floor(value * bitsPerEmotion);
-        for (let i = 0; i < bitsPerEmotion; i++) {
-            binaryData.push(i < bits ? 1 : 0);
-        }
-    });
-
-    // Fill remaining bits
-    while (binaryData.length < 64) {
-        binaryData.push(0);
-    }
-
-    return binaryData;
-}
-
-// Update binary data visualization
-function updateBinaryData(detection) {
-    if (!detection || !detection.expressions) {
-        return;
-    }
-
-    const binaryData = generateEmotionBinaryData(detection.expressions);
-    const cellWidth = binary.width / 64;
-    const cellHeight = binary.height;
-
-    binaryCtx.clearRect(0, 0, binary.width, binary.height);
-    binaryCtx.fillStyle = '#31a68f';
-
-    binaryData.forEach((bit, index) => {
-        if (bit === 1) {
-            binaryCtx.fillRect(
-                index * cellWidth,
-                0,
-                cellWidth - 1,
-                cellHeight
-            );
-        }
-    });
 }
 
 // Handle emotion sound
