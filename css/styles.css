@@ -1,0 +1,167 @@
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #31a68f;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+#audio-prompt {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(149, 28, 13, 0.9);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    z-index: 1000;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+#audio-prompt:hover {
+    background: rgba(149, 28, 13, 1);
+    transform: translateX(-50%) scale(1.05);
+}
+
+#audio-prompt.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.data-display {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #951c0d;
+    font-size: 14px;
+    line-height: 1.6;
+    letter-spacing: 0.5px;
+    z-index: 10;
+    text-transform: uppercase;
+    pointer-events: none;
+    padding: 20px;
+}
+
+.data-display.left {
+    left: 50px;
+    text-align: left;
+}
+
+.data-display.right {
+    right: 50px;
+    text-align: right;
+}
+
+.data-display .title {
+    font-size: 16px;
+    margin-bottom: 15px;
+    opacity: 0.9;
+    font-weight: bold;
+}
+
+.data-display .section {
+    margin-bottom: 20px;
+}
+
+.data-display .section-title {
+    color: #951c0d;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.data-display .data-row {
+    opacity: 0.8;
+    margin-left: 10px;
+}
+
+.data-display .value {
+    color: #951c0d;
+}
+
+/* Main container */
+.main-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+    background: transparent;
+}
+
+/* Left side - camera feed */
+.video-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    background: transparent !important;
+    mix-blend-mode: normal;
+    visibility: hidden;  
+}
+
+/* Video element */
+#video {
+    position: absolute;
+    width: 960px;
+    height: 540px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    object-fit: contain;
+    mix-blend-mode: normal;
+    background: transparent !important;
+    visibility: hidden;  
+}
+
+/* Overlay canvas */
+#overlay {
+    position: absolute;
+    width: 960px;
+    height: 540px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    mix-blend-mode: normal;
+    background: transparent !important;
+    visibility: hidden;  
+}
+
+/* Right side - visualization */
+#visualization-container {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 50%;
+    height: 100%;
+    background: transparent !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#visualization-container canvas {
+    mix-blend-mode: screen;
+    background: transparent !important;
+}
+
+/* Sacred flower background */
+#sacred-flower-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.audio-enabled #audio-status {
+    color: #4CAF50 !important;
+}

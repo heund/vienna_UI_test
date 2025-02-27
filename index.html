@@ -7,132 +7,35 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: #31a68f;
-        }
-        
-        #audio-prompt {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-family: 'Futura-PT', Arial;
-            z-index: 1000;
-            cursor: pointer;
-            opacity: 1;
-            transition: opacity 0.5s;
-        }
-
-        #audio-prompt.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        /* Main container */
-        .main-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            z-index: 1;
-            background: transparent;
-        }
-
-        /* Left side - camera feed */
-        .video-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 50%;
-            height: 100%;
-            background: transparent !important;
-            mix-blend-mode: normal;
-        }
-
-        /* Video element */
-        #video {
-            position: absolute;
-            width: 960px;
-            height: 540px;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            object-fit: contain;
-            mix-blend-mode: normal;
-            background: transparent !important;
-        }
-
-        /* Overlay canvas */
-        #overlay {
-            position: absolute;
-            width: 960px;
-            height: 540px;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            mix-blend-mode: normal;
-            background: transparent !important;
-        }
-
-        /* Right side - visualization */
-        #visualization-container {
-            position: absolute;
-            right: 0;
-            top: 0;
-            width: 50%;
-            height: 100%;
-            background: transparent !important;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #visualization-container canvas {
-            mix-blend-mode: screen;
-            background: transparent !important;
-        }
-
-        /* Sacred flower background */
-        #sacred-flower-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        /* Status and emotion text */
-        #status {
-            color: #31a68f;
-            z-index: 3;
-            position: relative;
-            padding: 10px;
-            font-family: 'Futura-PT', Arial;
-            font-size: 24px;
-        }
-
-        .emotion-primary, .emotion-secondary {
-            color: #31a68f;
-            z-index: 3;
-            position: relative;
-            padding: 10px;
-            font-family: 'Futura-PT', Arial;
-            font-size: 18px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div id="audio-prompt">Click anywhere to enable audio</div>
+    <div id="audio-prompt">Click here to enable audio</div>
     <div id="sacred-flower-container"></div>
+    
+    <div class="data-display left">
+        <div class="title">EMOTIONS</div>
+        
+        <div class="section">
+            <div class="section-title">PRIMARY</div>
+            <div class="data-row">TYPE: <span id="primary-emotion-type" class="value">NEUTRAL</span></div>
+            <div class="data-row">CONFIDENCE: <span id="primary-emotion-confidence" class="value">0%</span></div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">SECONDARY</div>
+            <div class="data-row">TYPE: <span id="secondary-emotion-type" class="value">NEUTRAL</span></div>
+            <div class="data-row">CONFIDENCE: <span id="secondary-emotion-confidence" class="value">0%</span></div>
+        </div>
+    </div>
+
+    <div class="data-display right">
+        <div class="title">SYSTEM STATUS</div>
+        <div class="data-row">FPS: <span id="fps-value" class="value">0</span></div>
+        <div class="data-row">LANDMARKS: <span id="landmarks-value" class="value">0</span></div>
+        <div class="data-row">PERSON: <span id="person-status" class="value">NOT DETECTED</span></div>
+        <div class="data-row">AUDIO: <span id="audio-status" class="value">DISABLED</span></div>
+    </div>
     
     <div class="main-container">
         <div class="video-container">
@@ -149,6 +52,7 @@
     <script src="js/shared.js"></script>
     <script src="js/sacred_flower/sacred_flower.js"></script>
     <script src="js/tone_manager.js"></script>
+    <script src="js/audio.js"></script>
     <script src="js/visualization.js"></script>
     <script src="js/main.js"></script>
 </body>

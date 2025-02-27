@@ -170,8 +170,6 @@ function updateStats(detection) {
     if (Math.abs(primaryEmotion.value - lastPrimaryValue) > 0.1) {
         emotionPrimaryElement.textContent = `${primaryEmotion.name} (${(primaryEmotion.value * 100).toFixed(0)}%)`;
         lastPrimaryValue = primaryEmotion.value;
-        
-        handleEmotionSound(primaryEmotion.name, primaryEmotion.value);
     }
     if (Math.abs(secondaryEmotion.value - lastSecondaryValue) > 0.1) {
         emotionSecondaryElement.textContent = `${secondaryEmotion.name} (${(secondaryEmotion.value * 100).toFixed(0)}%)`;
@@ -179,16 +177,34 @@ function updateStats(detection) {
     }
 
     // Update shared data for visualization
+    let lastEmotionName = window.lastEmotionName || '';
     window.emotionData = {
         emotion: primaryEmotion.name,
         confidence: primaryEmotion.value,
+        secondaryEmotion: {
+            name: secondaryEmotion.name,
+            value: secondaryEmotion.value
+        },
         landmarks: {
             positions: detection.landmarks.positions,
             scale: 1
         },
         timestamp: Date.now(),
-        hasNewData: true
+        hasNewData: true,
+        isNewEmotion: primaryEmotion.name !== lastEmotionName
     };
+    
+    window.lastEmotionName = primaryEmotion.name;
+
+    // Handle emotion sounds
+    if (window.emotionSoundManager) {
+        window.emotionSoundManager.handleEmotions(
+            primaryEmotion.name,
+            primaryEmotion.value,
+            secondaryEmotion.name,
+            secondaryEmotion.value
+        );
+    }
 }
 
 // Smooth emotion values using moving average

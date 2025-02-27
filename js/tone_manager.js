@@ -9,8 +9,10 @@ let wetGainNode = null;
 
 // Initialize Web Audio API and load sounds
 async function initializeSounds() {
+    const audioPrompt = document.getElementById('audio-prompt');
+    
     // Add click handler to start audio
-    document.body.addEventListener('click', async () => {
+    const initAudio = async () => {
         if (!isAudioInitialized) {
             try {
                 // Create audio context
@@ -33,11 +35,24 @@ async function initializeSounds() {
                     neutralBuffer = await audioContext.decodeAudioData(arrayBuffer);
                 }
 
+                // Hide the prompt after successful initialization
+                if (audioPrompt) {
+                    audioPrompt.style.opacity = '0';
+                    setTimeout(() => {
+                        audioPrompt.style.display = 'none';
+                    }, 1000);
+                }
+
             } catch (error) {
                 console.error('Error initializing audio:', error);
             }
         }
-    });
+    };
+
+    // Add multiple event listeners for better interaction
+    document.body.addEventListener('click', initAudio);
+    document.body.addEventListener('touchstart', initAudio);
+    document.body.addEventListener('keydown', initAudio);
 }
 
 // Function to play a sound buffer

@@ -9,6 +9,36 @@ new p5((p) => {
     let scaleFactor = 1;
     let glowAmount = 0;
     let fadeAmount = 0;
+    let lastEmotion = 'neutral';
+    let lastLandmarks = [];
+    let movementAmount = 0;
+    let useWhiteGlow = false;
+    
+    // Smoothing variables
+    let smoothedPrimaryConfidence = 0;
+    let smoothedSecondaryConfidence = 0;
+    let targetPrimaryConfidence = 0;
+    let targetSecondaryConfidence = 0;
+    const smoothingSpeed = 0.1; // Adjust this to control transition speed
+
+    // Function to calculate movement
+    function calculateMovement(currentLandmarks, lastLandmarks) {
+        if (!currentLandmarks || !lastLandmarks || currentLandmarks.length !== lastLandmarks.length) {
+            return 0;
+        }
+        
+        let totalMovement = 0;
+        for (let i = 0; i < currentLandmarks.length; i++) {
+            const dx = currentLandmarks[i].x - lastLandmarks[i].x;
+            const dy = currentLandmarks[i].y - lastLandmarks[i].y;
+            totalMovement += Math.sqrt(dx * dx + dy * dy);
+        }
+        return totalMovement / currentLandmarks.length;
+    }
+
+    function smoothValue(current, target) {
+        return current + (target - current) * smoothingSpeed;
+    }
 
     p.setup = () => {
         console.log('Setting up visualization...');
@@ -35,15 +65,56 @@ new p5((p) => {
         p.background(0, 0, 0, 0);
         
         if (window.emotionData && window.emotionData.hasNewData) {
-            const { emotion, confidence, landmarks, timestamp } = window.emotionData;
+            const { emotion, confidence, landmarks, timestamp, secondaryEmotion } = window.emotionData;
             
             if (!lastDrawTime || timestamp > lastDrawTime) {
+                // Calculate movement
+                movementAmount = calculateMovement(landmarks.positions, lastLandmarks);
+                movementAmount = Math.min(movementAmount * 2, 1); // Scale and clamp movement
+                lastLandmarks = JSON.parse(JSON.stringify(landmarks.positions)); // Deep copy
+                
+                if (emotion !== lastEmotion) {
+                    useWhiteGlow = !useWhiteGlow;
+                    lastEmotion = emotion;
+                    // Reset smoothing for new emotion
+                    smoothedPrimaryConfidence = confidence;
+                    if (secondaryEmotion) {
+                        smoothedSecondaryConfidence = secondaryEmotion.value;
+                    }
+                } else {
+                    // Smooth transition for existing emotion
+                    targetPrimaryConfidence = confidence;
+                    smoothedPrimaryConfidence = smoothValue(smoothedPrimaryConfidence, targetPrimaryConfidence);
+                    
+                    if (secondaryEmotion) {
+                        targetSecondaryConfidence = secondaryEmotion.value;
+                        smoothedSecondaryConfidence = smoothValue(smoothedSecondaryConfidence, targetSecondaryConfidence);
+                    }
+                }
+
                 currentEmotion = emotion;
-                currentConfidence = confidence;
+                currentConfidence = smoothedPrimaryConfidence;
                 currentLandmarks = landmarks.positions;
                 scaleFactor = landmarks.scale || 1;
                 lastDrawTime = timestamp;
                 window.emotionData.hasNewData = false;
+
+                // Update HTML elements
+                document.getElementById('primary-emotion-type').textContent = emotion.toUpperCase();
+                document.getElementById('primary-emotion-confidence').textContent = 
+                    Math.round(smoothedPrimaryConfidence * 100) + '%';
+                
+                if (secondaryEmotion) {
+                    document.getElementById('secondary-emotion-type').textContent = 
+                        secondaryEmotion.name.toUpperCase();
+                    document.getElementById('secondary-emotion-confidence').textContent = 
+                        Math.round(smoothedSecondaryConfidence * 100) + '%';
+                }
+                
+                document.getElementById('landmarks-value').textContent = landmarks.positions.length;
+                document.getElementById('fps-value').textContent = Math.round(p.frameRate());
+                document.getElementById('person-status').textContent = 
+                    landmarks.positions.length > 0 ? 'DETECTED' : 'NOT DETECTED';
             }
         }
 
@@ -56,7 +127,7 @@ new p5((p) => {
             p.push();
             p.translate(p.width/2, p.height/2);
             
-            const s = scaleFactor * 1.8; // More moderate scale
+            const s = scaleFactor * 1.5; // More moderate scale
             p.scale(s);
             
             // Calculate center of face
@@ -154,17 +225,28 @@ new p5((p) => {
                 }
             });
 
-            // Add overall bloom effect with more subtle glow
             p.blendMode(p.SCREEN);
             p.noStroke();
+            
+            // Outer yellow glow
             for(let i = 0; i < 3; i++) {
                 p.fill(45, 70, 100, 0.015 * fadeAmount);
                 p.ellipse(0, 0, 
-                       300 + p.sin(p.frameCount * 0.05) * 20 + i * 40, 
-                       300 + p.cos(p.frameCount * 0.05) * 20 + i * 40);
+                       250 + p.sin(p.frameCount * 0.05) * 20 + i * 40, 
+                       250 + p.cos(p.frameCount * 0.05) * 20 + i * 40);
             }
-            p.blendMode(p.BLEND);
             
+            // Inner white glow based on movement
+            if (movementAmount > 0.1) {
+                for(let i = 0; i < 2; i++) {
+                    p.fill(0, 0, 100, 0.01 * fadeAmount * movementAmount);
+                    p.ellipse(0, 0, 
+                           150 + p.sin(p.frameCount * 0.08) * 10 + i * 20, 
+                           150 + p.cos(p.frameCount * 0.08) * 10 + i * 20);
+                }
+            }
+            
+            p.blendMode(p.BLEND);
             p.pop();
         }
     };
