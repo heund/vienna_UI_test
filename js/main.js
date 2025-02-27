@@ -1,13 +1,14 @@
-// Video elements setup
+// DOM elements
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 const overlayCtx = overlay.getContext('2d');
+const emotionPrimaryElement = document.getElementById('emotion-primary');
+const emotionSecondaryElement = document.getElementById('emotion-secondary');
+const statusElement = document.getElementById('status');
 const binary = document.getElementById('binary');
 const binaryCtx = binary.getContext('2d');
-const statusElement = document.getElementById('status');
-const emotionPrimaryElement = document.querySelector('.emotion-primary');
-const emotionSecondaryElement = document.querySelector('.emotion-secondary');
 
+// Video elements setup
 // Initialize global emotionChannel
 console.log('Initializing main page...');
 // emotionChannel is defined in shared.js
@@ -22,17 +23,21 @@ Promise.all([
 .catch(err => console.error('Error loading models:', err));
 
 // Initialize emotion smoothing
-const emotionHistory = {
-    angry: [],
-    disgusted: [],
-    fearful: [],
-    happy: [],
+let emotionHistory = {
     neutral: [],
+    happy: [],
     sad: [],
+    angry: [],
+    fearful: [],
+    disgusted: [],
     surprised: []
 };
-const smoothingWindow = 10; // Number of frames to average
-const confidenceThreshold = 0.5; // Minimum confidence to register emotion
+const smoothingWindow = 10;
+const confidenceThreshold = 0.5;
+let lastPrimaryValue = 0;
+let lastSecondaryValue = 0;
+let lastFrameTime = 0;
+const FRAME_INTERVAL = 1000 / 30; // 30fps
 
 // Initialize detection status tracking
 let lastDetectionTime = Date.now();
@@ -83,9 +88,19 @@ video.addEventListener('play', () => {
 
 // Main face detection function
 async function detectFaces() {
-    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks()
-        .withFaceExpressions();
+    const currentTime = Date.now();
+    if (currentTime - lastFrameTime < FRAME_INTERVAL) {
+        requestAnimationFrame(detectFaces);
+        return;
+    }
+    lastFrameTime = currentTime;
+
+    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
+        inputSize: 320,  // Keep the optimized input size
+        scoreThreshold: 0.3
+    }))
+    .withFaceLandmarks()
+    .withFaceExpressions();
 
     overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
 
@@ -95,56 +110,26 @@ async function detectFaces() {
         const landmarks = detection.landmarks;
         const expressions = detection.expressions;
         
+        // Debug log expressions
+        console.log('Detected expressions:', expressions);
+        
         // Smooth emotions
         Object.keys(expressions).forEach(emotion => {
             emotionHistory[emotion].push(expressions[emotion]);
             if (emotionHistory[emotion].length > smoothingWindow) {
                 emotionHistory[emotion].shift();
             }
-            expressions[emotion] = smoothEmotion(emotion);
         });
+
+        // Update stats with smoothed emotions
+        updateStats(detection);
         
-        // Find primary emotion with smoothed values
-        let emotionsArray = Object.entries(expressions)
-            .map(([emotion, confidence]) => ({emotion, confidence}))
-            .sort((a, b) => b.confidence - a.confidence);
-        
-        let primaryEmotion = emotionsArray[0];
-
-        // Only update if confidence exceeds threshold
-        if (primaryEmotion.confidence > confidenceThreshold) {
-            // Convert landmarks to simple x,y objects and normalize scale
-            const positions = landmarks.positions.map(point => ({
-                x: point._x !== undefined ? point._x : point.x,
-                y: point._y !== undefined ? point._y : point.y
-            }));
-
-            // Calculate face size for scale normalization
-            const box = detection.detection.box;
-            const faceSize = Math.min(box.width, box.height);
-            const targetSize = 400; 
-            const scale = (targetSize / faceSize) * 1.2; 
-
-            // Update shared data
-            window.emotionData = {
-                emotion: primaryEmotion.emotion,
-                confidence: primaryEmotion.confidence,
-                landmarks: {
-                    positions: positions,
-                    box: detection.detection.box,
-                    scale: scale 
-                },
-                expressions: expressions,
-                timestamp: Date.now(),
-                hasNewData: true
-            };
-
-            // Draw custom detection
-            drawCustomDetection(detection);
-            
-            // Comment out binary data drawing
-            // drawBinaryData(detection);
-        }
+        // Draw face detection visuals
+        drawCustomDetection(detection);
+        drawGeometricFaceMesh(landmarks.positions);
+        updateBinaryData(detection);
+    } else {
+        console.log('No face detected');
     }
 
     // Update detection status
@@ -164,12 +149,63 @@ function updateDetectionStatus() {
     }
 }
 
+// Update emotion stats with optimized design
+function updateStats(detection) {
+    if (!detection) return;
+
+    const expressions = detection.expressions;
+    let primaryEmotion = { name: 'neutral', value: 0 };
+    let secondaryEmotion = { name: 'neutral', value: 0 };
+
+    // Single pass to find primary and secondary emotions
+    Object.entries(expressions).forEach(([emotion, value]) => {
+        const smoothedValue = smoothEmotion(emotion);
+        if (smoothedValue > primaryEmotion.value) {
+            secondaryEmotion = { ...primaryEmotion };
+            primaryEmotion = { name: emotion, value: smoothedValue };
+        } else if (smoothedValue > secondaryEmotion.value) {
+            secondaryEmotion = { name: emotion, value: smoothedValue };
+        }
+    });
+
+    // Debug log primary emotion
+    console.log('Primary emotion:', primaryEmotion);
+
+    // Update DOM elements only if values have changed significantly
+    if (Math.abs(primaryEmotion.value - lastPrimaryValue) > 0.1) {
+        emotionPrimaryElement.textContent = `${primaryEmotion.name} (${(primaryEmotion.value * 100).toFixed(0)}%)`;
+        lastPrimaryValue = primaryEmotion.value;
+        
+        // Handle emotion sound with debug logging
+        console.log('Primary emotion changed, calling handleEmotionSound:', primaryEmotion.name);
+        handleEmotionSound(primaryEmotion.name, primaryEmotion.value);
+    }
+    if (Math.abs(secondaryEmotion.value - lastSecondaryValue) > 0.1) {
+        emotionSecondaryElement.textContent = `${secondaryEmotion.name} (${(secondaryEmotion.value * 100).toFixed(0)}%)`;
+        lastSecondaryValue = secondaryEmotion.value;
+    }
+
+    // Update shared data for visualization
+    window.emotionData = {
+        emotion: primaryEmotion.name,
+        confidence: primaryEmotion.value,
+        landmarks: {
+            positions: detection.landmarks.positions,
+            scale: 1
+        },
+        timestamp: Date.now(),
+        hasNewData: true
+    };
+}
+
 // Smooth emotion values using moving average
 function smoothEmotion(emotion) {
-    if (emotionHistory[emotion].length === 0) return 0;
+    const history = emotionHistory[emotion];
+    if (history.length === 0) return 0;
     
-    const sum = emotionHistory[emotion].reduce((a, b) => a + b, 0);
-    return sum / emotionHistory[emotion].length;
+    // Use simple average instead of complex calculations
+    const sum = history.reduce((a, b) => a + b, 0);
+    return sum / history.length;
 }
 
 // Draw custom detection box and emotion data
@@ -244,152 +280,60 @@ function drawGeometricFaceMesh(positions) {
     updateBinaryData();
 }
 
-// Draw binary data at the bottom
-function drawBinaryData(detection) {
-    if (!detection) return;
-    
-    const binaryData = generateEmotionBinaryData(detection.expressions);
-    const cellWidth = binary.width / binaryData.length;
-    const cellHeight = binary.height;
-    
-    binaryCtx.clearRect(0, 0, binary.width, binary.height);
-    
-    // Draw each binary digit
-    binaryData.forEach((digit, i) => {
-        binaryCtx.fillStyle = '#7fdbff';
-        binaryCtx.font = '11px Futura-PT, Arial';
-        binaryCtx.textAlign = 'center';
-        binaryCtx.fillText(digit, i * cellWidth + cellWidth/2, cellHeight/2);
-    });
-}
-
-// Generate binary data from emotions
+// Function to generate binary data from emotions
 function generateEmotionBinaryData(expressions) {
-    const emotionValues = Object.values(expressions);
-    return emotionValues.map(value => Math.round(value)).join('');
-}
+    if (!expressions) {
+        return new Array(64).fill(0);
+    }
 
-// Update emotion stats with original design
-function updateStats(detection) {
-    if (!detection) return;
+    // Convert emotion values to binary representation
+    const binaryData = [];
+    const emotions = Object.entries(expressions);
+    const totalEmotions = emotions.length;
+    const bitsPerEmotion = Math.floor(64 / totalEmotions);
 
-    const expressions = detection.expressions;
-    const box = detection.detection.box;
-    
-    // Find top 3 emotions
-    let emotionsArray = Object.entries(expressions)
-        .map(([emotion, confidence]) => ({emotion, confidence}))
-        .sort((a, b) => b.confidence - a.confidence)
-        .slice(0, 3);
-    
-    let primaryEmotion = emotionsArray[0];
-    let confidence = primaryEmotion.confidence;
-
-    // Draw primary emotion circle (left side)
-    const circleRadius = 45;
-    const padding = 100;
-    
-    // Position circle to the left of the face
-    const circleX = box.x - padding - circleRadius;
-    const circleY = box.y + box.height / 2;
-    
-    // Add glow effect
-    const overlayCtx = overlay.getContext('2d');
-    overlayCtx.shadowColor = '#7fdbff';
-    overlayCtx.shadowBlur = 10;
-    
-    // Draw outer circle
-    overlayCtx.strokeStyle = 'rgba(127, 219, 255, 0.3)';
-    overlayCtx.lineWidth = 2;
-    overlayCtx.beginPath();
-    overlayCtx.arc(circleX, circleY, circleRadius, 0, Math.PI * 2);
-    overlayCtx.stroke();
-    
-    // Draw progress arc
-    overlayCtx.strokeStyle = '#7fdbff';
-    overlayCtx.lineWidth = 2;
-    overlayCtx.beginPath();
-    overlayCtx.arc(circleX, circleY, circleRadius, -Math.PI/2, 
-        (-Math.PI/2) + (2 * Math.PI * confidence));
-    overlayCtx.stroke();
-    
-    // Reset shadow for text
-    overlayCtx.shadowBlur = 0;
-    
-    // Draw percentage text
-    overlayCtx.fillStyle = '#7fdbff';
-    overlayCtx.font = '32px Futura-PT, Arial';
-    overlayCtx.textAlign = 'center';
-    overlayCtx.textBaseline = 'middle';
-    overlayCtx.fillText(Math.round(confidence * 100) + '%', circleX, circleY);
-    
-    // Draw emotion label
-    overlayCtx.font = '11px Futura-PT, Arial';
-    overlayCtx.letterSpacing = '2px';
-    overlayCtx.fillStyle = '#7fdbff';
-    overlayCtx.shadowColor = '#7fdbff';
-    overlayCtx.shadowBlur = 10;
-    overlayCtx.fillText(primaryEmotion.emotion.toUpperCase(), circleX, circleY + circleRadius + 20);
-
-    // Non-primary emotions section (right side)
-    const graphX = box.x + box.width + padding + 20;
-    const graphY = box.y + box.height / 2 - 40;
-    const graphWidth = 200;
-    
-    // Section title
-    overlayCtx.fillStyle = '#7fdbff';
-    overlayCtx.shadowBlur = 10;
-    overlayCtx.fillText('NON-PRIMARY EMOTIONS', graphX, graphY);
-    
-    // Draw ruler graph for secondary emotions
-    emotionsArray.slice(1).forEach((emotion, index) => {
-        const y = graphY + 30 + (index * 30);
-        const barWidth = graphWidth * emotion.confidence;
-        
-        // Draw label
-        overlayCtx.fillStyle = '#7fdbff';
-        overlayCtx.fillText(emotion.emotion.toUpperCase(), graphX, y);
-        
-        // Draw percentage
-        overlayCtx.fillText(Math.round(emotion.confidence * 100) + '%', 
-            graphX + graphWidth + 20, y);
-        
-        // Draw bar
-        overlayCtx.strokeStyle = '#7fdbff';
-        overlayCtx.lineWidth = 1;
-        overlayCtx.beginPath();
-        overlayCtx.moveTo(graphX, y + 10);
-        overlayCtx.lineTo(graphX + barWidth, y + 10);
-        overlayCtx.stroke();
+    emotions.forEach(([emotion, value]) => {
+        const bits = Math.floor(value * bitsPerEmotion);
+        for (let i = 0; i < bitsPerEmotion; i++) {
+            binaryData.push(i < bits ? 1 : 0);
+        }
     });
-}
 
-// Helper function to generate binary data
-function generateEmotionBinaryData(expressions) {
-    return Object.values(expressions)
-        .map(confidence => Math.round(confidence * 255))
-        .map(value => toBinary(value))
-        .join('').split('');
-}
+    // Fill remaining bits
+    while (binaryData.length < 64) {
+        binaryData.push(0);
+    }
 
-// Helper function to convert number to binary
-function toBinary(number) {
-    return (number >>> 0).toString(2).padStart(8, '0');
+    return binaryData;
 }
 
 // Update binary data visualization
-function updateBinaryData() {
-    const binaryData = generateEmotionBinaryData(window.emotionData.expressions);
-    const cellWidth = binary.width / binaryData.length;
+function updateBinaryData(detection) {
+    if (!detection || !detection.expressions) {
+        return;
+    }
+
+    const binaryData = generateEmotionBinaryData(detection.expressions);
+    const cellWidth = binary.width / 64;
     const cellHeight = binary.height;
-    
+
     binaryCtx.clearRect(0, 0, binary.width, binary.height);
-    
-    // Draw each binary digit
-    binaryData.forEach((digit, i) => {
-        binaryCtx.fillStyle = '#7fdbff';
-        binaryCtx.font = '11px Futura-PT, Arial';
-        binaryCtx.textAlign = 'center';
-        binaryCtx.fillText(digit, i * cellWidth + cellWidth/2, cellHeight/2);
+    binaryCtx.fillStyle = '#31a68f';
+
+    binaryData.forEach((bit, index) => {
+        if (bit === 1) {
+            binaryCtx.fillRect(
+                index * cellWidth,
+                0,
+                cellWidth - 1,
+                cellHeight
+            );
+        }
     });
+}
+
+// Handle emotion sound
+function handleEmotionSound(emotion, confidence) {
+    // TO DO: implement sound handling logic here
+    console.log(`Emotion sound: ${emotion} with confidence ${confidence}`);
 }

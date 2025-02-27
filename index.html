@@ -5,12 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Emotion Detection</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <script defer src="js/shared.js"></script>
-    <script defer src="js/sacred_flower/sacred_flower.js"></script>
-    <script defer src="js/visualization.js"></script>
-    <script defer src="js/main.js"></script>
-    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         body {
             margin: 0;
@@ -19,17 +15,28 @@
             background: #31a68f;
         }
         
-        #sacred-flower-container {
+        #audio-prompt {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 0;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-family: 'Futura-PT', Arial;
+            z-index: 1000;
+            cursor: pointer;
+            opacity: 1;
+            transition: opacity 0.5s;
+        }
+
+        #audio-prompt.hidden {
+            opacity: 0;
             pointer-events: none;
         }
-        
-        /* Main container - replaces split container */
+
+        /* Main container */
         .main-container {
             position: relative;
             width: 100vw;
@@ -37,7 +44,7 @@
             z-index: 1;
             background: transparent;
         }
-        
+
         /* Left side - camera feed */
         .video-container {
             position: absolute;
@@ -48,7 +55,7 @@
             background: transparent !important;
             mix-blend-mode: normal;
         }
-        
+
         /* Video element */
         #video {
             position: absolute;
@@ -61,7 +68,7 @@
             mix-blend-mode: normal;
             background: transparent !important;
         }
-        
+
         /* Overlay canvas */
         #overlay {
             position: absolute;
@@ -73,7 +80,7 @@
             mix-blend-mode: normal;
             background: transparent !important;
         }
-        
+
         /* Binary canvas */
         #binary {
             position: absolute;
@@ -85,73 +92,77 @@
             mix-blend-mode: normal;
             background: transparent !important;
         }
-        
+
         /* Right side - visualization */
         #visualization-container {
             position: absolute;
-            right: 2%;
-            top: 2%;
-            width: 46%;
-            height: 96%;
+            right: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
             background: transparent !important;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        
+
         #visualization-container canvas {
-            mix-blend-mode: normal;
+            mix-blend-mode: screen;
             background: transparent !important;
         }
-        
-        canvas {
-            position: absolute;
+
+        /* Sacred flower background */
+        #sacred-flower-container {
+            position: fixed;
             top: 0;
             left: 0;
-        }
-        
-        #sacred-flower-container canvas {
+            width: 100vw;
+            height: 100vh;
             z-index: 0;
+            pointer-events: none;
         }
-        
-        #visualization-container canvas {
-            z-index: 2;
-        }
-        
+
+        /* Status and emotion text */
         #status {
             color: #31a68f;
             z-index: 3;
             position: relative;
             padding: 10px;
+            font-family: 'Futura-PT', Arial;
+            font-size: 24px;
         }
-        
-        .emotion-stats {
+
+        .emotion-primary, .emotion-secondary {
             color: #31a68f;
             z-index: 3;
             position: relative;
             padding: 10px;
+            font-family: 'Futura-PT', Arial;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
-    <!-- Sacred flower background -->
+    <div id="audio-prompt">Click anywhere to enable audio</div>
     <div id="sacred-flower-container"></div>
     
-    <!-- Main container -->
     <div class="main-container">
-        <!-- Left side - camera feed -->
         <div class="video-container">
-            <video id="video" autoplay muted></video>
-            <canvas id="overlay"></canvas>
-            <canvas id="binary"></canvas>
-
-                <div id="status">PERSON: NOT DETECTED</div>
-            </div>
-            <div id="emotion-stats" class="emotion-stats">
-                <div class="emotion-primary"></div>
-                <div class="emotion-secondary"></div>
-            </div>
+            <video id="video" width="960" height="540" autoplay muted></video>
+            <canvas id="overlay" width="960" height="540"></canvas>
+            <canvas id="binary" width="960" height="60"></canvas>
+            <div id="status">Initializing...</div>
+            <div id="emotion-primary" class="emotion-primary">neutral (0%)</div>
+            <div id="emotion-secondary" class="emotion-secondary">neutral (0%)</div>
         </div>
         
-        <!-- Right side - visualization -->
         <div id="visualization-container"></div>
     </div>
+
+    <script src="js/shared.js"></script>
+    <script src="js/sacred_flower/sacred_flower.js"></script>
+    <script src="js/tone_manager.js"></script>
+    <script src="js/visualization.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>

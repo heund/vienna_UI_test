@@ -12,7 +12,6 @@ const colors = {
 // Create a new p5 instance for the background
 const sacredFlowerSketch = (p) => {
     let rotation = 0;
-    let lastLayer = 0;
     const PETAL_ROWS = 10;      // Number of rows
     const PETALS_PER_ROW = 16; // Base number of petals per row
     const rotationSpeed = 0.1;  // Speed of overall rotation
@@ -35,9 +34,6 @@ const sacredFlowerSketch = (p) => {
         p.background(p.color(colors.background));
         p.translate(p.width/2, p.height/2);
         
-        // Animate the build-up of layers
-        lastLayer = p.min(lastLayer + 0.02, PETAL_ROWS);
-        
         // Draw the flower pattern
         drawFlower(p);
         
@@ -51,15 +47,13 @@ const sacredFlowerSketch = (p) => {
 
     const drawFlower = (p) => {
         // Make flower size relative to the smaller screen dimension, but larger
-        const baseSize = p.min(p.width, p.height) * 0.35; // Increased from 0.22
+        const baseSize = p.min(p.width, p.height) * 0.35;
         
         p.push();
         p.rotate(rotation);
         
         // Draw from outer to inner to get proper overlapping
         for (let row = PETAL_ROWS - 1; row >= 0; row--) {
-            if (row > lastLayer) continue;
-            
             const rowRadius = baseSize * (1 - row * 0.12);
             const numPetals = PETALS_PER_ROW + row * 3;
             const angleStep = 360 / numPetals;
