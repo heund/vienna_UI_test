@@ -1,8 +1,6 @@
-console.log('Initializing visualization page...');
-// emotionChannel is defined in shared.js
-console.log('Using shared broadcast channel');
-
 // Create a new p5 instance for visualization
+console.log('Initializing visualization page...');
+
 new p5((p) => {
     let currentEmotion = 'neutral';
     let currentConfidence = 0;
